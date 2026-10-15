@@ -504,25 +504,6 @@
   }
 }
 
-.debug-info {
-  padding: 8px 12px;
-  background: rgba(147, 51, 234, 0.1);
-  border: 1px solid rgba(147, 51, 234, 0.3);
-  border-radius: 6px;
-  margin-bottom: 12px;
-  font-size: 11px;
-  color: #a78bfa;
-  font-family: var(--mono);
-
-  div {
-    margin-bottom: 2px;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-}
-
 .provider-section {
   margin-bottom: 12px;
 

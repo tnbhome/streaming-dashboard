@@ -198,16 +198,7 @@ function App() {
       }
 
       const data = await response.json()
-      console.log('Raw TMDb watch provider response:', data)
-      const usProviders = data.results?.US
-      if (usProviders) {
-        console.log('Provider counts:', {
-          streaming: usProviders.flatrate?.length || 0,
-          rent: usProviders.rent?.length || 0,
-          buy: usProviders.buy?.length || 0,
-        })
-      }
-      setWatchProviders(usProviders || null)
+      setWatchProviders(data.results?.US || null)
     } catch (err) {
       console.error('Error fetching watch providers:', err)
       setWatchProviders(null)
@@ -523,13 +514,6 @@ function App() {
                             <div className="available-elsewhere-header">Available Elsewhere</div>
                           </>
                         )}
-
-                        <div className="debug-info">
-                          <div>Provider Count: {watchProviders ? Object.keys(watchProviders).length : 0}</div>
-                          <div>Streaming: {watchProviders?.flatrate?.length || 0}</div>
-                          <div>Rent: {watchProviders?.rent?.length || 0}</div>
-                          <div>Buy: {watchProviders?.buy?.length || 0}</div>
-                        </div>
 
                         {watchProviders.flatrate && watchProviders.flatrate.length > 0 && (
                           <div className="provider-section">
