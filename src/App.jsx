@@ -29,7 +29,17 @@ function App() {
       }
 
       const data = await response.json()
-      setResults(data.results || [])
+      const filteredResults = (data.results || []).filter(
+        (item) =>
+          item.media_type === 'movie' ||
+          item.media_type === 'tv'
+      ).filter(
+        (item) =>
+          item.poster_path &&
+          (item.title || item.name) &&
+          item.overview
+      )
+      setResults(filteredResults)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -56,6 +66,10 @@ function App() {
   }
 
   const fetchItemDetails = async (item) => {
+    if (item.media_type !== 'movie' && item.media_type !== 'tv') {
+      return
+    }
+
     setSelectedItem(item)
     setModalLoading(true)
     setModalError(null)
@@ -147,15 +161,11 @@ function App() {
                   className="result-card"
                   onClick={() => fetchItemDetails(item)}
                 >
-                  {posterUrl ? (
-                    <img
-                      src={posterUrl}
-                      alt={item.title || item.name}
-                      className="poster"
-                    />
-                  ) : (
-                    <div className="poster-placeholder">No Image</div>
-                  )}
+                  <img
+                    src={posterUrl}
+                    alt={item.title || item.name}
+                    className="poster"
+                  />
                   <div className="card-content">
                     <h3 className="title">{item.title || item.name}</h3>
                     <div className="meta">
