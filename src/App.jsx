@@ -1,121 +1,117 @@
 import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const searchTMDB = async () => {
+    if (!query.trim()) return
+
+    setLoading(true)
+    setError(null)
+    setResults([])
+
+    try {
+      const apiKey = import.meta.env.VITE_TMDB_API_KEY
+      const response = await fetch(
+        `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(query)}`
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch results')
+      }
+
+      const data = await response.json()
+      setResults(data.results || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    searchTMDB()
+  }
+
+  const getPosterUrl = (posterPath) => {
+    if (!posterPath) return null
+    return `https://image.tmdb.org/t/p/w500${posterPath}`
+  }
+
+  const getReleaseDate = (item) => {
+    return item.release_date || item.first_air_date || 'N/A'
+  }
+
+  const getRating = (item) => {
+    return item.vote_average ? item.vote_average.toFixed(1) : 'N/A'
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      <header className="header">
+        <h1>TMDb Search</h1>
+        <form className="search-form" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search movies and TV shows..."
+            className="search-input"
+          />
+          <button type="submit" className="search-button" disabled={loading}>
+            {loading ? 'Searching...' : 'Search'}
+          </button>
+        </form>
+      </header>
 
-      <div className="ticks"></div>
+      <main className="main">
+        {error && <div className="error">{error}</div>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {loading && <div className="loading">Loading...</div>}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+        {!loading && !error && results.length === 0 && query && (
+          <div className="no-results">No results found</div>
+        )}
+
+        {!loading && !error && results.length > 0 && (
+          <div className="results-grid">
+            {results.map((item) => {
+              const posterUrl = getPosterUrl(item.poster_path)
+              return (
+                <div key={item.id} className="result-card">
+                  {posterUrl ? (
+                    <img
+                      src={posterUrl}
+                      alt={item.title || item.name}
+                      className="poster"
+                    />
+                  ) : (
+                    <div className="poster-placeholder">No Image</div>
+                  )}
+                  <div className="card-content">
+                    <h3 className="title">{item.title || item.name}</h3>
+                    <div className="meta">
+                      <span className="media-type">
+                        {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                      </span>
+                      <span className="release-date">
+                        {getReleaseDate(item)}
+                      </span>
+                    </div>
+                    <div className="rating">★ {getRating(item)}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </main>
+    </div>
   )
 }
 
