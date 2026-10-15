@@ -10,6 +10,7 @@ function App() {
   const [modalLoading, setModalLoading] = useState(false)
   const [modalError, setModalError] = useState(null)
   const [itemDetails, setItemDetails] = useState(null)
+  const [watchProviders, setWatchProviders] = useState(null)
 
   const searchTMDB = async () => {
     if (!query.trim()) return
@@ -74,6 +75,7 @@ function App() {
     setModalLoading(true)
     setModalError(null)
     setItemDetails(null)
+    setWatchProviders(null)
 
     try {
       const apiKey = import.meta.env.VITE_TMDB_API_KEY
@@ -88,6 +90,8 @@ function App() {
 
       const data = await response.json()
       setItemDetails(data)
+
+      fetchWatchProviders(mediaType, item.id)
     } catch (err) {
       setModalError(err.message)
     } finally {
@@ -98,7 +102,27 @@ function App() {
   const closeModal = () => {
     setSelectedItem(null)
     setItemDetails(null)
+    setWatchProviders(null)
     setModalError(null)
+  }
+
+  const fetchWatchProviders = async (mediaType, itemId) => {
+    try {
+      const apiKey = import.meta.env.VITE_TMDB_API_KEY
+      const response = await fetch(
+        `https://api.themoviedb.org/3/${mediaType}/${itemId}/watch/providers?api_key=${apiKey}`
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch watch providers')
+      }
+
+      const data = await response.json()
+      setWatchProviders(data.results?.US || null)
+    } catch (err) {
+      console.error('Error fetching watch providers:', err)
+      setWatchProviders(null)
+    }
   }
 
   const getBackdropUrl = (backdropPath) => {
@@ -249,6 +273,70 @@ function App() {
                       <div className="modal-overview">
                         <h3>Overview</h3>
                         <p>{itemDetails.overview}</p>
+                      </div>
+                    )}
+
+                    {watchProviders && (
+                      <div className="watch-providers">
+                        {watchProviders.flatrate && watchProviders.flatrate.length > 0 && (
+                          <div className="provider-section">
+                            <h4>Streaming</h4>
+                            <div className="provider-list">
+                              {watchProviders.flatrate.map((provider) => (
+                                <div key={provider.provider_id} className="provider-item">
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                    alt={provider.provider_name}
+                                    className="provider-logo"
+                                  />
+                                  <span className="provider-name">{provider.provider_name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {watchProviders.rent && watchProviders.rent.length > 0 && (
+                          <div className="provider-section">
+                            <h4>Rent</h4>
+                            <div className="provider-list">
+                              {watchProviders.rent.map((provider) => (
+                                <div key={provider.provider_id} className="provider-item">
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                    alt={provider.provider_name}
+                                    className="provider-logo"
+                                  />
+                                  <span className="provider-name">{provider.provider_name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {watchProviders.buy && watchProviders.buy.length > 0 && (
+                          <div className="provider-section">
+                            <h4>Buy</h4>
+                            <div className="provider-list">
+                              {watchProviders.buy.map((provider) => (
+                                <div key={provider.provider_id} className="provider-item">
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                    alt={provider.provider_name}
+                                    className="provider-logo"
+                                  />
+                                  <span className="provider-name">{provider.provider_name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {!watchProviders.flatrate?.length &&
+                          !watchProviders.rent?.length &&
+                          !watchProviders.buy?.length && (
+                            <div className="no-providers">No watch providers available</div>
+                          )}
                       </div>
                     )}
                   </div>
