@@ -1,5 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+
+const SUPPORTED_SERVICES = [
+  { id: 'netflix', name: 'Netflix', tmdbId: 8 },
+  { id: 'prime', name: 'Prime Video', tmdbId: 9 },
+  { id: 'apple', name: 'Apple TV+', tmdbId: 350 },
+  { id: 'peacock', name: 'Peacock', tmdbId: 387 },
+  { id: 'hulu', name: 'Hulu', tmdbId: 15 },
+  { id: 'max', name: 'Max', tmdbId: 1899 },
+  { id: 'paramount', name: 'Paramount+', tmdbId: 531 },
+  { id: 'disney', name: 'Disney+', tmdbId: 337 },
+]
 
 function App() {
   const [query, setQuery] = useState('')
@@ -11,6 +22,52 @@ function App() {
   const [modalError, setModalError] = useState(null)
   const [itemDetails, setItemDetails] = useState(null)
   const [watchProviders, setWatchProviders] = useState(null)
+  const [subscriptions, setSubscriptions] = useState([])
+  const [showSettings, setShowSettings] = useState(false)
+  const [filterMode, setFilterMode] = useState('all')
+  const [subscriptionMatches, setSubscriptionMatches] = useState({})
+
+  useEffect(() => {
+    const saved = localStorage.getItem('tmdb-subscriptions')
+    if (saved) {
+      setSubscriptions(JSON.parse(saved))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedItem) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [selectedItem])
+
+  const isSubscribed = (providerId) => {
+    const service = SUPPORTED_SERVICES.find((s) => s.tmdbId === providerId)
+    return service ? subscriptions.includes(service.id) : false
+  }
+
+  const hasSubscriptionMatch = (providers) => {
+    if (!providers || providers.length === 0) return false
+    return providers.some((provider) => isSubscribed(provider.provider_id))
+  }
+
+  const toggleSubscription = (serviceId) => {
+    const newSubscriptions = subscriptions.includes(serviceId)
+      ? subscriptions.filter((id) => id !== serviceId)
+      : [...subscriptions, serviceId]
+    setSubscriptions(newSubscriptions)
+    localStorage.setItem('tmdb-subscriptions', JSON.stringify(newSubscriptions))
+  }
+
+  const getSubscriptionStatus = () => {
+    if (!watchProviders) return null
+    const hasMatch = hasSubscriptionMatch(watchProviders.flatrate || [])
+    return hasMatch ? 'available' : 'not-available'
+  }
 
   const searchTMDB = async () => {
     if (!query.trim()) return
@@ -18,6 +75,7 @@ function App() {
     setLoading(true)
     setError(null)
     setResults([])
+    setSubscriptionMatches({})
 
     try {
       const apiKey = import.meta.env.VITE_TMDB_API_KEY
@@ -41,6 +99,28 @@ function App() {
           item.overview
       )
       setResults(filteredResults)
+
+      const matches = {}
+      for (const item of filteredResults) {
+        try {
+          const mediaType = item.media_type === 'tv' ? 'tv' : 'movie'
+          const providerResponse = await fetch(
+            `https://api.themoviedb.org/3/${mediaType}/${item.id}/watch/providers?api_key=${apiKey}`
+          )
+          if (providerResponse.ok) {
+            const providerData = await providerResponse.json()
+            const usProviders = providerData.results?.US
+            if (usProviders && usProviders.flatrate) {
+              matches[item.id] = hasSubscriptionMatch(usProviders.flatrate)
+            } else {
+              matches[item.id] = false
+            }
+          }
+        } catch (err) {
+          matches[item.id] = false
+        }
+      }
+      setSubscriptionMatches(matches)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -118,7 +198,16 @@ function App() {
       }
 
       const data = await response.json()
-      setWatchProviders(data.results?.US || null)
+      console.log('Raw TMDb watch provider response:', data)
+      const usProviders = data.results?.US
+      if (usProviders) {
+        console.log('Provider counts:', {
+          streaming: usProviders.flatrate?.length || 0,
+          rent: usProviders.rent?.length || 0,
+          buy: usProviders.buy?.length || 0,
+        })
+      }
+      setWatchProviders(usProviders || null)
     } catch (err) {
       console.error('Error fetching watch providers:', err)
       setWatchProviders(null)
@@ -152,6 +241,49 @@ function App() {
     <div className="app">
       <header className="header">
         <h1>TMDb Search</h1>
+        <button
+          className="settings-button"
+          onClick={() => setShowSettings(!showSettings)}
+        >
+          ⚙️ Settings
+        </button>
+        {showSettings && (
+          <div className="settings-panel">
+            <h3>My Subscriptions</h3>
+            <div className="subscriptions-grid">
+              {SUPPORTED_SERVICES.map((service) => (
+                <label key={service.id} className="subscription-item">
+                  <input
+                    type="checkbox"
+                    checked={subscriptions.includes(service.id)}
+                    onChange={() => toggleSubscription(service.id)}
+                  />
+                  <span>{service.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="filter-toggle">
+              <label>
+                <input
+                  type="radio"
+                  value="all"
+                  checked={filterMode === 'all'}
+                  onChange={(e) => setFilterMode(e.target.value)}
+                />
+                Show All Providers
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="subscriptions"
+                  checked={filterMode === 'subscriptions'}
+                  onChange={(e) => setFilterMode(e.target.value)}
+                />
+                Show Only My Services
+              </label>
+            </div>
+          </div>
+        )}
         <form className="search-form" onSubmit={handleSubmit}>
           <input
             type="text"
@@ -176,36 +308,132 @@ function App() {
         )}
 
         {!loading && !error && results.length > 0 && (
-          <div className="results-grid">
-            {results.map((item) => {
-              const posterUrl = getPosterUrl(item.poster_path)
-              return (
-                <div
-                  key={item.id}
-                  className="result-card"
-                  onClick={() => fetchItemDetails(item)}
-                >
-                  <img
-                    src={posterUrl}
-                    alt={item.title || item.name}
-                    className="poster"
-                  />
-                  <div className="card-content">
-                    <h3 className="title">{item.title || item.name}</h3>
-                    <div className="meta">
-                      <span className="media-type">
-                        {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
-                      </span>
-                      <span className="release-date">
-                        {getReleaseDate(item)}
-                      </span>
+          <>
+            {subscriptions.length > 0 && (
+              <>
+                <div className="results-section">
+                  <h2 className="section-title">Available On My Services</h2>
+                  {results.filter((item) => subscriptionMatches[item.id]).length > 0 ? (
+                    <div className="results-grid">
+                      {results
+                        .filter((item) => subscriptionMatches[item.id])
+                        .map((item) => {
+                          const posterUrl = getPosterUrl(item.poster_path)
+                          return (
+                            <div
+                              key={item.id}
+                              className="result-card"
+                              onClick={() => fetchItemDetails(item)}
+                            >
+                              <div className="subscription-badge available">
+                                ✅ Available Now
+                              </div>
+                              <img
+                                src={posterUrl}
+                                alt={item.title || item.name}
+                                className="poster"
+                              />
+                              <div className="card-content">
+                                <h3 className="title">{item.title || item.name}</h3>
+                                <div className="meta">
+                                  <span className="media-type">
+                                    {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                                  </span>
+                                  <span className="release-date">
+                                    {getReleaseDate(item)}
+                                  </span>
+                                </div>
+                                <div className="rating">★ {getRating(item)}</div>
+                              </div>
+                            </div>
+                          )
+                        })}
                     </div>
-                    <div className="rating">★ {getRating(item)}</div>
-                  </div>
+                  ) : (
+                    <div className="no-results">No titles available on your subscriptions</div>
+                  )}
                 </div>
-              )
-            })}
-          </div>
+
+                {filterMode === 'all' && (
+                  <div className="results-section">
+                    <h2 className="section-title">Available Elsewhere</h2>
+                    {results.filter((item) => !subscriptionMatches[item.id]).length > 0 ? (
+                      <div className="results-grid">
+                        {results
+                          .filter((item) => !subscriptionMatches[item.id])
+                          .map((item) => {
+                            const posterUrl = getPosterUrl(item.poster_path)
+                            return (
+                              <div
+                                key={item.id}
+                                className="result-card"
+                                onClick={() => fetchItemDetails(item)}
+                              >
+                                <div className="subscription-badge not-available">
+                                  ❌ Not In My Services
+                                </div>
+                                <img
+                                  src={posterUrl}
+                                  alt={item.title || item.name}
+                                  className="poster"
+                                />
+                                <div className="card-content">
+                                  <h3 className="title">{item.title || item.name}</h3>
+                                  <div className="meta">
+                                    <span className="media-type">
+                                      {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                                    </span>
+                                    <span className="release-date">
+                                      {getReleaseDate(item)}
+                                    </span>
+                                  </div>
+                                  <div className="rating">★ {getRating(item)}</div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    ) : (
+                      <div className="no-results">No other titles available</div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {subscriptions.length === 0 && (
+              <div className="results-grid">
+                {results.map((item) => {
+                  const posterUrl = getPosterUrl(item.poster_path)
+                  return (
+                    <div
+                      key={item.id}
+                      className="result-card"
+                      onClick={() => fetchItemDetails(item)}
+                    >
+                      <img
+                        src={posterUrl}
+                        alt={item.title || item.name}
+                        className="poster"
+                      />
+                      <div className="card-content">
+                        <h3 className="title">{item.title || item.name}</h3>
+                        <div className="meta">
+                          <span className="media-type">
+                            {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                          </span>
+                          <span className="release-date">
+                            {getReleaseDate(item)}
+                          </span>
+                        </div>
+                        <div className="rating">★ {getRating(item)}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -222,16 +450,6 @@ function App() {
 
             {itemDetails && (
               <div className="modal-body">
-                {getBackdropUrl(itemDetails.backdrop_path) && (
-                  <div className="modal-backdrop">
-                    <img
-                      src={getBackdropUrl(itemDetails.backdrop_path)}
-                      alt=""
-                      className="backdrop-image"
-                    />
-                  </div>
-                )}
-
                 <div className="modal-info">
                   <div className="modal-poster">
                     {getLargePosterUrl(itemDetails.poster_path) ? (
@@ -276,14 +494,54 @@ function App() {
                       </div>
                     )}
 
+                    {watchProviders === null && (
+                      <div className="watch-providers">
+                        <div className="no-provider-data">
+                          <div className="no-provider-icon">ℹ️</div>
+                          <div className="no-provider-title">
+                            No watch provider information is currently available for this title from TMDb.
+                          </div>
+                          <div className="no-provider-explanation">
+                            This title may not currently have streaming availability information, may be region-specific, or provider data may not yet be available.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {watchProviders && (
                       <div className="watch-providers">
+                        {getSubscriptionStatus() === 'available' && (
+                          <div className="subscription-status available">
+                            ✓ Available with My Subscriptions
+                          </div>
+                        )}
+                        {getSubscriptionStatus() === 'not-available' && (
+                          <>
+                            <div className="subscription-status not-available">
+                              ✗ Not Included in My Subscriptions
+                            </div>
+                            <div className="available-elsewhere-header">Available Elsewhere</div>
+                          </>
+                        )}
+
+                        <div className="debug-info">
+                          <div>Provider Count: {watchProviders ? Object.keys(watchProviders).length : 0}</div>
+                          <div>Streaming: {watchProviders?.flatrate?.length || 0}</div>
+                          <div>Rent: {watchProviders?.rent?.length || 0}</div>
+                          <div>Buy: {watchProviders?.buy?.length || 0}</div>
+                        </div>
+
                         {watchProviders.flatrate && watchProviders.flatrate.length > 0 && (
                           <div className="provider-section">
                             <h4>Streaming</h4>
                             <div className="provider-list">
                               {watchProviders.flatrate.map((provider) => (
-                                <div key={provider.provider_id} className="provider-item">
+                                <div
+                                  key={provider.provider_id}
+                                  className={`provider-item ${
+                                    isSubscribed(provider.provider_id) ? 'subscribed' : ''
+                                  }`}
+                                >
                                   <img
                                     src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
                                     alt={provider.provider_name}
@@ -301,7 +559,12 @@ function App() {
                             <h4>Rent</h4>
                             <div className="provider-list">
                               {watchProviders.rent.map((provider) => (
-                                <div key={provider.provider_id} className="provider-item">
+                                <div
+                                  key={provider.provider_id}
+                                  className={`provider-item ${
+                                    isSubscribed(provider.provider_id) ? 'subscribed' : ''
+                                  }`}
+                                >
                                   <img
                                     src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
                                     alt={provider.provider_name}
@@ -319,7 +582,12 @@ function App() {
                             <h4>Buy</h4>
                             <div className="provider-list">
                               {watchProviders.buy.map((provider) => (
-                                <div key={provider.provider_id} className="provider-item">
+                                <div
+                                  key={provider.provider_id}
+                                  className={`provider-item ${
+                                    isSubscribed(provider.provider_id) ? 'subscribed' : ''
+                                  }`}
+                                >
                                   <img
                                     src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
                                     alt={provider.provider_name}
