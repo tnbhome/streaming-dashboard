@@ -19,6 +19,20 @@ const PREFERRED_STORES = [
   { id: 'fandango-store', name: 'Fandango at Home', tmdbId: 38 },
 ]
 
+const PROVIDER_LINKS = {
+  8: { name: 'Netflix', url: (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}` },
+  9: { name: 'Amazon Prime Video', url: (title) => `https://www.amazon.com/s?k=${encodeURIComponent(title)}` },
+  2: { name: 'Apple TV', url: (title) => `https://tv.apple.com/search?q=${encodeURIComponent(title)}` },
+  387: { name: 'Peacock', url: (title) => `https://www.peacocktv.com/search?q=${encodeURIComponent(title)}` },
+  15: { name: 'Hulu', url: (title) => `https://www.hulu.com/search?q=${encodeURIComponent(title)}` },
+  337: { name: 'Disney+', url: (title) => `https://www.disneyplus.com/search?q=${encodeURIComponent(title)}` },
+  1899: { name: 'Max', url: (title) => `https://www.max.com/search?q=${encodeURIComponent(title)}` },
+  531: { name: 'Paramount+', url: (title) => `https://www.paramountplus.com/search?q=${encodeURIComponent(title)}` },
+  10: { name: 'Google Play Movies', url: (title) => `https://play.google.com/store/search?q=${encodeURIComponent(title)}` },
+  68: { name: 'YouTube', url: (title) => `https://www.youtube.com/results?search_query=${encodeURIComponent(title)}` },
+  38: { name: 'Fandango at Home', url: (title) => `https://www.fandangonow.com/search?q=${encodeURIComponent(title)}` },
+}
+
 function App() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -150,6 +164,28 @@ function App() {
     watchProviders.buy?.forEach((p) => addProvider(p, 'buy'))
 
     return Array.from(providerMap.values())
+  }
+
+  const getProviderLink = (providerId, title) => {
+    const providerLink = PROVIDER_LINKS[providerId]
+    if (providerLink) {
+      const url = providerLink.url(title)
+      if (url && url.startsWith('http')) {
+        return url
+      }
+    }
+    return null
+  }
+
+  const hasProviderLink = (providerId) => {
+    return PROVIDER_LINKS.hasOwnProperty(providerId)
+  }
+
+  const openProviderLink = (providerId, title) => {
+    const link = getProviderLink(providerId, title)
+    if (link) {
+      window.open(link, '_blank', 'noopener,noreferrer')
+    }
   }
 
   const searchTMDB = async () => {
@@ -693,34 +729,40 @@ function App() {
                               <div className="provider-list">
                                 {groupProviders()
                                   .filter((p) => isSubscribed(p.provider_id) || isPreferredStore(p.provider_id))
-                                  .map((provider) => (
-                                    <div
-                                      key={provider.provider_id}
-                                      className={`provider-item ${
-                                        isSubscribed(provider.provider_id) || isPreferredStore(provider.provider_id) ? 'subscribed' : ''
-                                      }`}
-                                    >
-                                      <img
-                                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                        alt={provider.provider_name}
-                                        className="provider-logo"
-                                      />
-                                      <div className="provider-info">
+                                  .map((provider) => {
+                                    const hasLink = hasProviderLink(provider.provider_id)
+                                    return (
+                                      <div
+                                        key={provider.provider_id}
+                                        className={`provider-item ${
+                                          isSubscribed(provider.provider_id) || isPreferredStore(provider.provider_id) ? 'subscribed' : ''
+                                        } ${!hasLink ? 'disabled' : ''}`}
+                                        onClick={() => hasLink && openProviderLink(provider.provider_id, itemDetails.title || itemDetails.name)}
+                                        title={hasLink ? 'Open Provider' : 'Provider link unavailable'}
+                                      >
                                         <span className="provider-name">{provider.provider_name}</span>
+                                        <img
+                                          src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                          alt={provider.provider_name}
+                                          className="provider-logo"
+                                        />
                                         <div className="provider-tags">
                                           {provider.types.includes('stream') && (
-                                            <span className="provider-tag stream">Stream</span>
+                                            <span className="provider-tag stream">STREAM</span>
                                           )}
                                           {provider.types.includes('rent') && (
-                                            <span className="provider-tag rent">Rent</span>
+                                            <span className="provider-tag rent">RENT</span>
                                           )}
                                           {provider.types.includes('buy') && (
-                                            <span className="provider-tag buy">Buy</span>
+                                            <span className="provider-tag buy">BUY</span>
                                           )}
                                         </div>
+                                        <span className="provider-action">
+                                          {hasLink ? 'Open Provider' : 'Provider link unavailable'}
+                                        </span>
                                       </div>
-                                    </div>
-                                  ))}
+                                    )
+                                  })}
                                 {groupProviders().filter((p) => isSubscribed(p.provider_id) || isPreferredStore(p.provider_id)).length === 0 && (
                                   <div className="no-providers">No providers available through your services</div>
                                 )}
@@ -732,32 +774,38 @@ function App() {
                               <div className="provider-list">
                                 {groupProviders()
                                   .filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id))
-                                  .map((provider) => (
-                                    <div
-                                      key={provider.provider_id}
-                                      className="provider-item"
-                                    >
-                                      <img
-                                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                        alt={provider.provider_name}
-                                        className="provider-logo"
-                                      />
-                                      <div className="provider-info">
+                                  .map((provider) => {
+                                    const hasLink = hasProviderLink(provider.provider_id)
+                                    return (
+                                      <div
+                                        key={provider.provider_id}
+                                        className={`provider-item ${!hasLink ? 'disabled' : ''}`}
+                                        onClick={() => hasLink && openProviderLink(provider.provider_id, itemDetails.title || itemDetails.name)}
+                                        title={hasLink ? 'Open Provider' : 'Provider link unavailable'}
+                                      >
                                         <span className="provider-name">{provider.provider_name}</span>
+                                        <img
+                                          src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                          alt={provider.provider_name}
+                                          className="provider-logo"
+                                        />
                                         <div className="provider-tags">
                                           {provider.types.includes('stream') && (
-                                            <span className="provider-tag stream">Stream</span>
+                                            <span className="provider-tag stream">STREAM</span>
                                           )}
                                           {provider.types.includes('rent') && (
-                                            <span className="provider-tag rent">Rent</span>
+                                            <span className="provider-tag rent">RENT</span>
                                           )}
                                           {provider.types.includes('buy') && (
-                                            <span className="provider-tag buy">Buy</span>
+                                            <span className="provider-tag buy">BUY</span>
                                           )}
                                         </div>
+                                        <span className="provider-action">
+                                          {hasLink ? 'Open Provider' : 'Provider link unavailable'}
+                                        </span>
                                       </div>
-                                    </div>
-                                  ))}
+                                    )
+                                  })}
                                 {groupProviders().filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id)).length === 0 && (
                                   <div className="no-providers">No other providers available</div>
                                 )}
