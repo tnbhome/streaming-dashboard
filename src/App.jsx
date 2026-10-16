@@ -12,6 +12,13 @@ const SUPPORTED_SERVICES = [
   { id: 'disney', name: 'Disney+', tmdbId: 337 },
 ]
 
+const PREFERRED_STORES = [
+  { id: 'apple-store', name: 'Apple TV', tmdbId: 2 },
+  { id: 'prime-store', name: 'Amazon Video', tmdbId: 9 },
+  { id: 'google-store', name: 'Google TV', tmdbId: 10 },
+  { id: 'fandango-store', name: 'Fandango at Home', tmdbId: 38 },
+]
+
 function App() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -23,6 +30,7 @@ function App() {
   const [itemDetails, setItemDetails] = useState(null)
   const [watchProviders, setWatchProviders] = useState(null)
   const [subscriptions, setSubscriptions] = useState([])
+  const [preferredStores, setPreferredStores] = useState([])
   const [showSettings, setShowSettings] = useState(false)
   const [filterMode, setFilterMode] = useState('all')
   const [subscriptionMatches, setSubscriptionMatches] = useState({})
@@ -31,6 +39,11 @@ function App() {
     const saved = localStorage.getItem('tmdb-subscriptions')
     if (saved) {
       setSubscriptions(JSON.parse(saved))
+    }
+
+    const savedStores = localStorage.getItem('tmdb-preferred-stores')
+    if (savedStores) {
+      setPreferredStores(JSON.parse(savedStores))
     }
   }, [])
 
@@ -50,9 +63,19 @@ function App() {
     return service ? subscriptions.includes(service.id) : false
   }
 
+  const isPreferredStore = (providerId) => {
+    const store = PREFERRED_STORES.find((s) => s.tmdbId === providerId)
+    return store ? preferredStores.includes(store.id) : false
+  }
+
   const hasSubscriptionMatch = (providers) => {
     if (!providers || providers.length === 0) return false
     return providers.some((provider) => isSubscribed(provider.provider_id))
+  }
+
+  const hasPreferredStoreMatch = (providers) => {
+    if (!providers || providers.length === 0) return false
+    return providers.some((provider) => isPreferredStore(provider.provider_id))
   }
 
   const toggleSubscription = (serviceId) => {
@@ -63,10 +86,70 @@ function App() {
     localStorage.setItem('tmdb-subscriptions', JSON.stringify(newSubscriptions))
   }
 
-  const getSubscriptionStatus = () => {
-    if (!watchProviders) return null
-    const hasMatch = hasSubscriptionMatch(watchProviders.flatrate || [])
-    return hasMatch ? 'available' : 'not-available'
+  const togglePreferredStore = (storeId) => {
+    const newStores = preferredStores.includes(storeId)
+      ? preferredStores.filter((id) => id !== storeId)
+      : [...preferredStores, storeId]
+    setPreferredStores(newStores)
+    localStorage.setItem('tmdb-preferred-stores', JSON.stringify(newStores))
+  }
+
+  const classifyAvailability = (providers) => {
+    if (!providers) return 'unknown'
+
+    const hasStreaming = hasSubscriptionMatch(providers.flatrate || [])
+    const hasStore = hasPreferredStoreMatch(providers.rent || []) ||
+                    hasPreferredStoreMatch(providers.buy || [])
+
+    if (hasStreaming) return 'included-in-services'
+    if (hasStore) return 'available-through-stores'
+    if (providers.flatrate?.length || providers.rent?.length || providers.buy?.length) {
+      return 'requires-another-subscription'
+    }
+    return 'unknown'
+  }
+
+  const getAvailabilityStatus = () => {
+    return classifyAvailability(watchProviders)
+  }
+
+  const getAvailabilityMessage = () => {
+    const status = getAvailabilityStatus()
+    switch (status) {
+      case 'included-in-services':
+        return '✓ Included In My Services'
+      case 'available-through-stores':
+        return '🛒 Available Through My Stores'
+      case 'requires-another-subscription':
+        return '✗ Requires Another Subscription'
+      case 'unknown':
+        return 'ℹ️ Availability Unknown'
+      default:
+        return ''
+    }
+  }
+
+  const groupProviders = () => {
+    if (!watchProviders) return []
+
+    const providerMap = new Map()
+
+    const addProvider = (provider, type) => {
+      const id = provider.provider_id
+      if (!providerMap.has(id)) {
+        providerMap.set(id, {
+          ...provider,
+          types: [],
+        })
+      }
+      providerMap.get(id).types.push(type)
+    }
+
+    watchProviders.flatrate?.forEach((p) => addProvider(p, 'stream'))
+    watchProviders.rent?.forEach((p) => addProvider(p, 'rent'))
+    watchProviders.buy?.forEach((p) => addProvider(p, 'buy'))
+
+    return Array.from(providerMap.values())
   }
 
   const searchTMDB = async () => {
@@ -110,14 +193,12 @@ function App() {
           if (providerResponse.ok) {
             const providerData = await providerResponse.json()
             const usProviders = providerData.results?.US
-            if (usProviders && usProviders.flatrate) {
-              matches[item.id] = hasSubscriptionMatch(usProviders.flatrate)
-            } else {
-              matches[item.id] = false
-            }
+            matches[item.id] = classifyAvailability(usProviders)
+          } else {
+            matches[item.id] = 'unknown'
           }
         } catch (err) {
-          matches[item.id] = false
+          matches[item.id] = 'unknown'
         }
       }
       setSubscriptionMatches(matches)
@@ -253,6 +334,21 @@ function App() {
                 </label>
               ))}
             </div>
+
+            <h3>Preferred Stores</h3>
+            <div className="subscriptions-grid">
+              {PREFERRED_STORES.map((store) => (
+                <label key={store.id} className="subscription-item">
+                  <input
+                    type="checkbox"
+                    checked={preferredStores.includes(store.id)}
+                    onChange={() => togglePreferredStore(store.id)}
+                  />
+                  <span>{store.name}</span>
+                </label>
+              ))}
+            </div>
+
             <div className="filter-toggle">
               <label>
                 <input
@@ -303,11 +399,11 @@ function App() {
             {subscriptions.length > 0 && (
               <>
                 <div className="results-section">
-                  <h2 className="section-title">Available On My Services</h2>
-                  {results.filter((item) => subscriptionMatches[item.id]).length > 0 ? (
+                  <h2 className="section-title">Included In My Services</h2>
+                  {results.filter((item) => subscriptionMatches[item.id] === 'included-in-services').length > 0 ? (
                     <div className="results-grid">
                       {results
-                        .filter((item) => subscriptionMatches[item.id])
+                        .filter((item) => subscriptionMatches[item.id] === 'included-in-services')
                         .map((item) => {
                           const posterUrl = getPosterUrl(item.poster_path)
                           return (
@@ -316,8 +412,8 @@ function App() {
                               className="result-card"
                               onClick={() => fetchItemDetails(item)}
                             >
-                              <div className="subscription-badge available">
-                                ✅ Available Now
+                              <div className="subscription-badge included-in-services">
+                                ✓ Included In My Services
                               </div>
                               <img
                                 src={posterUrl}
@@ -341,53 +437,138 @@ function App() {
                         })}
                     </div>
                   ) : (
-                    <div className="no-results">No titles available on your subscriptions</div>
+                    <div className="no-results">No titles included in your subscriptions</div>
                   )}
                 </div>
 
                 {filterMode === 'all' && (
-                  <div className="results-section">
-                    <h2 className="section-title">Available Elsewhere</h2>
-                    {results.filter((item) => !subscriptionMatches[item.id]).length > 0 ? (
-                      <div className="results-grid">
-                        {results
-                          .filter((item) => !subscriptionMatches[item.id])
-                          .map((item) => {
-                            const posterUrl = getPosterUrl(item.poster_path)
-                            return (
-                              <div
-                                key={item.id}
-                                className="result-card"
-                                onClick={() => fetchItemDetails(item)}
-                              >
-                                <div className="subscription-badge not-available">
-                                  ❌ Not In My Services
-                                </div>
-                                <img
-                                  src={posterUrl}
-                                  alt={item.title || item.name}
-                                  className="poster"
-                                />
-                                <div className="card-content">
-                                  <h3 className="title">{item.title || item.name}</h3>
-                                  <div className="meta">
-                                    <span className="media-type">
-                                      {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
-                                    </span>
-                                    <span className="release-date">
-                                      {getReleaseDate(item)}
-                                    </span>
+                  <>
+                    <div className="results-section">
+                      <h2 className="section-title">Available Through My Stores</h2>
+                      {results.filter((item) => subscriptionMatches[item.id] === 'available-through-stores').length > 0 ? (
+                        <div className="results-grid">
+                          {results
+                            .filter((item) => subscriptionMatches[item.id] === 'available-through-stores')
+                            .map((item) => {
+                              const posterUrl = getPosterUrl(item.poster_path)
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="result-card"
+                                  onClick={() => fetchItemDetails(item)}
+                                >
+                                  <div className="subscription-badge available-through-stores">
+                                    🛒 Available Through My Stores
                                   </div>
-                                  <div className="rating">★ {getRating(item)}</div>
+                                  <img
+                                    src={posterUrl}
+                                    alt={item.title || item.name}
+                                    className="poster"
+                                  />
+                                  <div className="card-content">
+                                    <h3 className="title">{item.title || item.name}</h3>
+                                    <div className="meta">
+                                      <span className="media-type">
+                                        {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                                      </span>
+                                      <span className="release-date">
+                                        {getReleaseDate(item)}
+                                      </span>
+                                    </div>
+                                    <div className="rating">★ {getRating(item)}</div>
+                                  </div>
                                 </div>
-                              </div>
-                            )
-                          })}
-                      </div>
-                    ) : (
-                      <div className="no-results">No other titles available</div>
-                    )}
-                  </div>
+                              )
+                            })}
+                        </div>
+                      ) : (
+                        <div className="no-results">No titles available through your stores</div>
+                      )}
+                    </div>
+
+                    <div className="results-section">
+                      <h2 className="section-title">Requires Another Subscription</h2>
+                      {results.filter((item) => subscriptionMatches[item.id] === 'requires-another-subscription').length > 0 ? (
+                        <div className="results-grid">
+                          {results
+                            .filter((item) => subscriptionMatches[item.id] === 'requires-another-subscription')
+                            .map((item) => {
+                              const posterUrl = getPosterUrl(item.poster_path)
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="result-card"
+                                  onClick={() => fetchItemDetails(item)}
+                                >
+                                  <div className="subscription-badge requires-another-subscription">
+                                    ✗ Requires Another Subscription
+                                  </div>
+                                  <img
+                                    src={posterUrl}
+                                    alt={item.title || item.name}
+                                    className="poster"
+                                  />
+                                  <div className="card-content">
+                                    <h3 className="title">{item.title || item.name}</h3>
+                                    <div className="meta">
+                                      <span className="media-type">
+                                        {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                                      </span>
+                                      <span className="release-date">
+                                        {getReleaseDate(item)}
+                                      </span>
+                                    </div>
+                                    <div className="rating">★ {getRating(item)}</div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                        </div>
+                      ) : (
+                        <div className="no-results">No titles requiring another subscription</div>
+                      )}
+                    </div>
+
+                    <div className="results-section">
+                      <h2 className="section-title">Availability Unknown</h2>
+                      {results.filter((item) => subscriptionMatches[item.id] === 'unknown').length > 0 ? (
+                        <div className="results-grid">
+                          {results
+                            .filter((item) => subscriptionMatches[item.id] === 'unknown')
+                            .map((item) => {
+                              const posterUrl = getPosterUrl(item.poster_path)
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="result-card"
+                                  onClick={() => fetchItemDetails(item)}
+                                >
+                                  <img
+                                    src={posterUrl}
+                                    alt={item.title || item.name}
+                                    className="poster"
+                                  />
+                                  <div className="card-content">
+                                    <h3 className="title">{item.title || item.name}</h3>
+                                    <div className="meta">
+                                      <span className="media-type">
+                                        {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                                      </span>
+                                      <span className="release-date">
+                                        {getReleaseDate(item)}
+                                      </span>
+                                    </div>
+                                    <div className="rating">★ {getRating(item)}</div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                        </div>
+                      ) : (
+                        <div className="no-results">No titles with unknown availability</div>
+                      )}
+                    </div>
+                  </>
                 )}
               </>
             )}
@@ -501,94 +682,93 @@ function App() {
 
                     {watchProviders && (
                       <div className="watch-providers">
-                        {getSubscriptionStatus() === 'available' && (
-                          <div className="subscription-status available">
-                            ✓ Available with My Subscriptions
-                          </div>
-                        )}
-                        {getSubscriptionStatus() === 'not-available' && (
+                        <div className={`subscription-status ${getAvailabilityStatus()}`}>
+                          {getAvailabilityMessage()}
+                        </div>
+
+                        {groupProviders().length > 0 && (
                           <>
-                            <div className="subscription-status not-available">
-                              ✗ Not Included in My Subscriptions
+                            <div className="provider-section">
+                              <h4>Available To Me Now</h4>
+                              <div className="provider-list">
+                                {groupProviders()
+                                  .filter((p) => isSubscribed(p.provider_id) || isPreferredStore(p.provider_id))
+                                  .map((provider) => (
+                                    <div
+                                      key={provider.provider_id}
+                                      className={`provider-item ${
+                                        isSubscribed(provider.provider_id) || isPreferredStore(provider.provider_id) ? 'subscribed' : ''
+                                      }`}
+                                    >
+                                      <img
+                                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                        alt={provider.provider_name}
+                                        className="provider-logo"
+                                      />
+                                      <div className="provider-info">
+                                        <span className="provider-name">{provider.provider_name}</span>
+                                        <div className="provider-tags">
+                                          {provider.types.includes('stream') && (
+                                            <span className="provider-tag stream">Stream</span>
+                                          )}
+                                          {provider.types.includes('rent') && (
+                                            <span className="provider-tag rent">Rent</span>
+                                          )}
+                                          {provider.types.includes('buy') && (
+                                            <span className="provider-tag buy">Buy</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                {groupProviders().filter((p) => isSubscribed(p.provider_id) || isPreferredStore(p.provider_id)).length === 0 && (
+                                  <div className="no-providers">No providers available through your services</div>
+                                )}
+                              </div>
                             </div>
-                            <div className="available-elsewhere-header">Available Elsewhere</div>
+
+                            <div className="provider-section">
+                              <h4>Requires Another Service</h4>
+                              <div className="provider-list">
+                                {groupProviders()
+                                  .filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id))
+                                  .map((provider) => (
+                                    <div
+                                      key={provider.provider_id}
+                                      className="provider-item"
+                                    >
+                                      <img
+                                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                        alt={provider.provider_name}
+                                        className="provider-logo"
+                                      />
+                                      <div className="provider-info">
+                                        <span className="provider-name">{provider.provider_name}</span>
+                                        <div className="provider-tags">
+                                          {provider.types.includes('stream') && (
+                                            <span className="provider-tag stream">Stream</span>
+                                          )}
+                                          {provider.types.includes('rent') && (
+                                            <span className="provider-tag rent">Rent</span>
+                                          )}
+                                          {provider.types.includes('buy') && (
+                                            <span className="provider-tag buy">Buy</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                {groupProviders().filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id)).length === 0 && (
+                                  <div className="no-providers">No other providers available</div>
+                                )}
+                              </div>
+                            </div>
                           </>
                         )}
 
-                        {watchProviders.flatrate && watchProviders.flatrate.length > 0 && (
-                          <div className="provider-section">
-                            <h4>Streaming</h4>
-                            <div className="provider-list">
-                              {watchProviders.flatrate.map((provider) => (
-                                <div
-                                  key={provider.provider_id}
-                                  className={`provider-item ${
-                                    isSubscribed(provider.provider_id) ? 'subscribed' : ''
-                                  }`}
-                                >
-                                  <img
-                                    src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                    alt={provider.provider_name}
-                                    className="provider-logo"
-                                  />
-                                  <span className="provider-name">{provider.provider_name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                        {groupProviders().length === 0 && (
+                          <div className="no-providers">No watch providers available</div>
                         )}
-
-                        {watchProviders.rent && watchProviders.rent.length > 0 && (
-                          <div className="provider-section">
-                            <h4>Rent</h4>
-                            <div className="provider-list">
-                              {watchProviders.rent.map((provider) => (
-                                <div
-                                  key={provider.provider_id}
-                                  className={`provider-item ${
-                                    isSubscribed(provider.provider_id) ? 'subscribed' : ''
-                                  }`}
-                                >
-                                  <img
-                                    src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                    alt={provider.provider_name}
-                                    className="provider-logo"
-                                  />
-                                  <span className="provider-name">{provider.provider_name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {watchProviders.buy && watchProviders.buy.length > 0 && (
-                          <div className="provider-section">
-                            <h4>Buy</h4>
-                            <div className="provider-list">
-                              {watchProviders.buy.map((provider) => (
-                                <div
-                                  key={provider.provider_id}
-                                  className={`provider-item ${
-                                    isSubscribed(provider.provider_id) ? 'subscribed' : ''
-                                  }`}
-                                >
-                                  <img
-                                    src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                    alt={provider.provider_name}
-                                    className="provider-logo"
-                                  />
-                                  <span className="provider-name">{provider.provider_name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {!watchProviders.flatrate?.length &&
-                          !watchProviders.rent?.length &&
-                          !watchProviders.buy?.length && (
-                            <div className="no-providers">No watch providers available</div>
-                          )}
                       </div>
                     )}
                   </div>

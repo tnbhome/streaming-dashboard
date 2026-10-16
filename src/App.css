@@ -59,6 +59,10 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 20px;
+
+  &:last-of-type {
+    margin-bottom: 0;
+  }
 }
 
 .subscription-item {
@@ -212,13 +216,18 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   white-space: nowrap;
 
-  &.available {
+  &.included-in-services {
     background: #22c55e;
     color: white;
   }
 
-  &.not-available {
-    background: #ef4444;
+  &.available-through-stores {
+    background: #3b82f6;
+    color: white;
+  }
+
+  &.requires-another-subscription {
+    background: #f59e0b;
     color: white;
   }
 }
@@ -491,21 +500,33 @@
   font-weight: 500;
   text-align: center;
 
-  &.available {
+  &.included-in-services {
     background: rgba(34, 197, 94, 0.15);
     color: #22c55e;
     border: 1px solid rgba(34, 197, 94, 0.3);
   }
 
-  &.not-available {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.3);
+  &.available-through-stores {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  &.requires-another-subscription {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  &.unknown {
+    background: rgba(156, 163, 175, 0.15);
+    color: #9ca3af;
+    border: 1px solid rgba(156, 163, 175, 0.3);
   }
 }
 
 .provider-section {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 
   &:last-child {
     margin-bottom: 0;
@@ -513,7 +534,7 @@
 
   h4 {
     font-size: 13px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     color: var(--text-h);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -521,8 +542,8 @@
 }
 
 .provider-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
 }
 
@@ -530,31 +551,18 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px;
+  gap: 8px;
+  padding: 16px 12px;
   background: var(--code-bg);
-  border-radius: 8px;
-  min-width: 80px;
+  border-radius: 12px;
   border: 2px solid transparent;
   transition: border-color 0.3s;
+  text-align: center;
 
   &.subscribed {
     border-color: #22c55e;
     background: rgba(34, 197, 94, 0.1);
   }
-}
-
-.provider-logo {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  border-radius: 4px;
-}
-
-.provider-name {
-  font-size: 12px;
-  color: var(--text);
-  text-align: center;
 }
 
 .no-providers {
@@ -590,25 +598,6 @@
   font-size: 13px;
   color: var(--text);
   line-height: 1.5;
-}
-
-.available-elsewhere-header {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-h);
-  margin-bottom: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.no-match-message {
-  padding: 12px;
-  background: var(--code-bg);
-  border-radius: 8px;
-  text-align: center;
-  color: var(--text);
-  font-size: 13px;
-  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -652,6 +641,10 @@
     max-height: 95vh;
   }
 
+  .provider-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .modal-close {
     margin: 12px 12px 0 0;
   }
@@ -667,11 +660,6 @@
 
   .modal-poster {
     width: 140px;
-    align-self: center;
-  }
-
-  .modal-poster {
-    width: 150px;
     align-self: center;
   }
 
@@ -698,9 +686,5 @@
 
   .watch-providers {
     text-align: center;
-  }
-
-  .provider-list {
-    justify-content: center;
   }
 }
