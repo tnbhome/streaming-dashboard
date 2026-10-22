@@ -1,3 +1,9 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -114,6 +120,7 @@
 }
 
 .search-input {
+  box-sizing: border-box;
   width: 100%;
   padding: 12px 16px;
   font-size: 16px;
