@@ -342,7 +342,8 @@
 
   .search-input,
   .search-input-wrapper,
-  .search-button {
+  .search-button,
+  .search-form {
     box-sizing: border-box;
   }
 
