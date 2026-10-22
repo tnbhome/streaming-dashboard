@@ -357,6 +357,10 @@
   .search-form {
     flex-direction: column;
   }
+  
+  .search-input-wrapper {
+    width: 100%;
+  }
 
   .search-button {
     width: 100%;
