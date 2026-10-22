@@ -20,17 +20,78 @@ const PREFERRED_STORES = [
 ]
 
 const PROVIDER_LINKS = {
-  8: { name: 'Netflix', url: (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}` },
-  9: { name: 'Amazon Prime Video', url: (title) => `https://www.amazon.com/s?k=${encodeURIComponent(title)}` },
-  2: { name: 'Apple TV', url: (title) => `https://tv.apple.com/search?q=${encodeURIComponent(title)}` },
-  387: { name: 'Peacock', url: (title) => `https://www.peacocktv.com/search?q=${encodeURIComponent(title)}` },
-  15: { name: 'Hulu', url: (title) => `https://www.hulu.com/search?q=${encodeURIComponent(title)}` },
-  337: { name: 'Disney+', url: (title) => `https://www.disneyplus.com/search?q=${encodeURIComponent(title)}` },
-  1899: { name: 'Max', url: (title) => `https://www.max.com/search?q=${encodeURIComponent(title)}` },
-  531: { name: 'Paramount+', url: (title) => `https://www.paramountplus.com/search?q=${encodeURIComponent(title)}` },
-  10: { name: 'Google Play Movies', url: (title) => `https://play.google.com/store/search?q=${encodeURIComponent(title)}` },
-  68: { name: 'YouTube', url: (title) => `https://www.youtube.com/results?search_query=${encodeURIComponent(title)}` },
-  38: { name: 'Fandango at Home', url: (title) => `https://www.fandangonow.com/search?q=${encodeURIComponent(title)}` },
+  'Netflix': {
+    url: (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `nflx://com.netflix.mediaclient/router?route=/search&searchTerm=${encodeURIComponent(title)}`
+  },
+  'Amazon Prime Video': {
+    url: (title) => `https://www.amazon.com/s?k=${encodeURIComponent(title)}`,
+    deepLink: (title) => `intent://www.amazon.com/s?k=${encodeURIComponent(title)}#Intent;scheme=https;package=com.amazon.avod.thirdpartyclient;end`
+  },
+  'Amazon Video': {
+    url: (title) => `https://www.amazon.com/s?k=${encodeURIComponent(title)}`,
+    deepLink: (title) => `intent://www.amazon.com/s?k=${encodeURIComponent(title)}#Intent;scheme=https;package=com.amazon.avod.thirdpartyclient;end`
+  },
+  'Amazon': {
+    url: (title) => `https://www.amazon.com/s?k=${encodeURIComponent(title)}`,
+    deepLink: (title) => `intent://www.amazon.com/s?k=${encodeURIComponent(title)}#Intent;scheme=https;package=com.amazon.avod.thirdpartyclient;end`
+  },
+  'Apple TV': {
+    url: (title) => `https://tv.apple.com/us/search?term=${encodeURIComponent(title)}`,
+    deepLink: (title) => `https://tv.apple.com/us/search?term=${encodeURIComponent(title)}`
+  },
+  'Apple TV+': {
+    url: (title) => `https://tv.apple.com/us/search?term=${encodeURIComponent(title)}`,
+    deepLink: (title) => `https://tv.apple.com/us/search?term=${encodeURIComponent(title)}`
+  },
+  'Peacock': {
+    url: (title) => `https://www.peacocktv.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `peacock://search?q=${encodeURIComponent(title)}`
+  },
+  'Hulu': {
+    url: (title) => `https://www.hulu.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `hulu://search?q=${encodeURIComponent(title)}`
+  },
+  'Disney+': {
+    url: (title) => `https://www.disneyplus.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `disneyplus://search?q=${encodeURIComponent(title)}`
+  },
+  'Disney Plus': {
+    url: (title) => `https://www.disneyplus.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `disneyplus://search?q=${encodeURIComponent(title)}`
+  },
+  'Max': {
+    url: (title) => `https://www.max.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `max://search?q=${encodeURIComponent(title)}`
+  },
+  'Paramount+': {
+    url: (title) => `https://www.paramountplus.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `paramountplus://search?q=${encodeURIComponent(title)}`
+  },
+  'Paramount Plus': {
+    url: (title) => `https://www.paramountplus.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `paramountplus://search?q=${encodeURIComponent(title)}`
+  },
+  'Google Play Movies': {
+    url: (title) => `https://play.google.com/store/search?q=${encodeURIComponent(title)}&c=movies`,
+    deepLink: (title) => `https://play.google.com/store/search?q=${encodeURIComponent(title)}&c=movies`
+  },
+  'Google Play': {
+    url: (title) => `https://play.google.com/store/search?q=${encodeURIComponent(title)}&c=movies`,
+    deepLink: (title) => `https://play.google.com/store/search?q=${encodeURIComponent(title)}&c=movies`
+  },
+  'YouTube': {
+    url: (title) => `https://www.youtube.com/results?search_query=${encodeURIComponent(title)}`,
+    deepLink: (title) => `vnd.youtube://search?query=${encodeURIComponent(title)}`
+  },
+  'Fandango at Home': {
+    url: (title) => `https://www.fandangonow.com/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `vudu://search?q=${encodeURIComponent(title)}`
+  },
+  'Vudu': {
+    url: (title) => `https://www.vudu.com/content/movies/search?q=${encodeURIComponent(title)}`,
+    deepLink: (title) => `vudu://search?q=${encodeURIComponent(title)}`
+  },
 }
 
 function App() {
@@ -48,6 +109,8 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [filterMode, setFilterMode] = useState('all')
   const [subscriptionMatches, setSubscriptionMatches] = useState({})
+  const [searchHistory, setSearchHistory] = useState([])
+  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('tmdb-subscriptions')
@@ -59,7 +122,29 @@ function App() {
     if (savedStores) {
       setPreferredStores(JSON.parse(savedStores))
     }
+
+    const savedHistory = localStorage.getItem('media-search-history')
+    if (savedHistory) {
+      setSearchHistory(JSON.parse(savedHistory))
+    }
   }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showSettings) {
+        const settingsPanel = document.querySelector('.settings-panel')
+        const settingsButton = document.querySelector('.settings-button')
+        if (settingsPanel && !settingsPanel.contains(event.target) && !settingsButton.contains(event.target)) {
+          setShowSettings(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSettings])
 
   useEffect(() => {
     if (selectedItem) {
@@ -131,13 +216,13 @@ function App() {
     const status = getAvailabilityStatus()
     switch (status) {
       case 'included-in-services':
-        return '✓ Included In My Services'
+        return '✓ Included'
       case 'available-through-stores':
-        return '🛒 Available Through My Stores'
+        return '🛒 Available'
       case 'requires-another-subscription':
-        return '✗ Requires Another Subscription'
+        return '✗ Subscription'
       case 'unknown':
-        return 'ℹ️ Availability Unknown'
+        return 'ℹ️ Unknown'
       default:
         return ''
     }
@@ -166,8 +251,8 @@ function App() {
     return Array.from(providerMap.values())
   }
 
-  const getProviderLink = (providerId, title) => {
-    const providerLink = PROVIDER_LINKS[providerId]
+  const getProviderLink = (providerName, title) => {
+    const providerLink = PROVIDER_LINKS[providerName]
     if (providerLink) {
       const url = providerLink.url(title)
       if (url && url.startsWith('http')) {
@@ -177,14 +262,64 @@ function App() {
     return null
   }
 
-  const hasProviderLink = (providerId) => {
-    return PROVIDER_LINKS.hasOwnProperty(providerId)
+  const getProviderDeepLink = (providerName, title) => {
+    const providerLink = PROVIDER_LINKS[providerName]
+    if (providerLink && providerLink.deepLink) {
+      return providerLink.deepLink(title)
+    }
+    return null
   }
 
-  const openProviderLink = (providerId, title) => {
-    const link = getProviderLink(providerId, title)
-    if (link) {
-      window.open(link, '_blank', 'noopener,noreferrer')
+  const hasProviderLink = (providerName) => {
+    return PROVIDER_LINKS.hasOwnProperty(providerName)
+  }
+
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  const isInIframe = () => {
+    try {
+      return window.self !== window.top
+    } catch (e) {
+      return true
+    }
+  }
+
+  const isHomeAssistant = () => {
+    return window.location.hostname === 'homeassistant.local' ||
+           window.location.pathname.includes('hassio') ||
+           window.location.search.includes('hass')
+  }
+
+  const openProviderLink = (providerName, title) => {
+    const webLink = getProviderLink(providerName, title)
+    if (!webLink) return
+
+    const mobile = isMobile()
+    const iframe = isInIframe()
+    const homeAssistant = isHomeAssistant()
+    const deepLink = getProviderDeepLink(providerName, title)
+
+    const hasSearchTerm = webLink.includes(encodeURIComponent(title)) || webLink.includes('q=') || webLink.includes('term=') || webLink.includes('search_query=')
+
+    if (!hasSearchTerm) {
+      return
+    }
+
+    if (iframe || homeAssistant) {
+      window.open(webLink, '_blank', 'noopener,noreferrer')
+    } else if (mobile) {
+      if (deepLink) {
+        window.location.href = deepLink
+        setTimeout(() => {
+          window.open(webLink, '_blank', 'noopener,noreferrer')
+        }, 2500)
+      } else {
+        window.open(webLink, '_blank', 'noopener,noreferrer')
+      }
+    } else {
+      window.open(webLink, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -196,17 +331,30 @@ function App() {
     setResults([])
     setSubscriptionMatches({})
 
+    if (query.trim()) {
+      const newHistory = [query.trim(), ...searchHistory.filter((q) => q !== query.trim())].slice(0, 5)
+      setSearchHistory(newHistory)
+      localStorage.setItem('media-search-history', JSON.stringify(newHistory))
+    }
+
     try {
       const apiKey = import.meta.env.VITE_TMDB_API_KEY
+      console.log('API Key:', apiKey ? 'Present' : 'Missing')
+      console.log('Search Query:', query)
+      
       const response = await fetch(
         `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(query)}`
       )
+
+      console.log('Response Status:', response.status)
 
       if (!response.ok) {
         throw new Error('Failed to fetch results')
       }
 
       const data = await response.json()
+      console.log('Raw Results Count:', data.results?.length || 0)
+      
       const filteredResults = (data.results || []).filter(
         (item) =>
           item.media_type === 'movie' ||
@@ -217,6 +365,8 @@ function App() {
           (item.title || item.name) &&
           item.overview
       )
+      
+      console.log('Filtered Results Count:', filteredResults.length)
       setResults(filteredResults)
 
       const matches = {}
@@ -348,12 +498,12 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>TMDb Search</h1>
+        <h1>Media Search</h1>
         <button
           className="settings-button"
           onClick={() => setShowSettings(!showSettings)}
         >
-          ⚙️ Settings
+          ⚙️
         </button>
         {showSettings && (
           <div className="settings-panel">
@@ -408,17 +558,41 @@ function App() {
           </div>
         )}
         <form className="search-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search movies and TV shows..."
-            className="search-input"
-          />
+          <div className="search-input-wrapper">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setShowHistoryDropdown(true)}
+              onBlur={() => setTimeout(() => setShowHistoryDropdown(false), 200)}
+              placeholder="Search movies and TV shows..."
+              className="search-input"
+            />
+          </div>
           <button type="submit" className="search-button" disabled={loading}>
             {loading ? 'Searching...' : 'Search'}
           </button>
         </form>
+
+        {showHistoryDropdown && searchHistory.length > 0 && (
+          <div className="search-history-dropdown">
+            <div className="history-list">
+              {searchHistory.map((historyItem, index) => (
+                <button
+                  key={index}
+                  className="history-item"
+                  onClick={() => {
+                    setQuery(historyItem)
+                    setShowHistoryDropdown(false)
+                    searchTMDB()
+                  }}
+                >
+                  {historyItem}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="main">
@@ -449,7 +623,7 @@ function App() {
                               onClick={() => fetchItemDetails(item)}
                             >
                               <div className="subscription-badge included-in-services">
-                                ✓ Included In My Services
+                                ✓ Included
                               </div>
                               <img
                                 src={posterUrl}
@@ -477,51 +651,51 @@ function App() {
                   )}
                 </div>
 
+                <div className="results-section">
+                  <h2 className="section-title">Available Through My Stores</h2>
+                  {results.filter((item) => subscriptionMatches[item.id] === 'available-through-stores').length > 0 ? (
+                    <div className="results-grid">
+                      {results
+                        .filter((item) => subscriptionMatches[item.id] === 'available-through-stores')
+                        .map((item) => {
+                          const posterUrl = getPosterUrl(item.poster_path)
+                          return (
+                            <div
+                              key={item.id}
+                              className="result-card"
+                              onClick={() => fetchItemDetails(item)}
+                            >
+                              <div className="subscription-badge available-through-stores">
+                                🛒 Available
+                              </div>
+                              <img
+                                src={posterUrl}
+                                alt={item.title || item.name}
+                                className="poster"
+                              />
+                              <div className="card-content">
+                                <h3 className="title">{item.title || item.name}</h3>
+                                <div className="meta">
+                                  <span className="media-type">
+                                    {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                                  </span>
+                                  <span className="release-date">
+                                    {getReleaseDate(item)}
+                                  </span>
+                                </div>
+                                <div className="rating">★ {getRating(item)}</div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  ) : (
+                    <div className="no-results">No titles available through your stores</div>
+                  )}
+                </div>
+
                 {filterMode === 'all' && (
                   <>
-                    <div className="results-section">
-                      <h2 className="section-title">Available Through My Stores</h2>
-                      {results.filter((item) => subscriptionMatches[item.id] === 'available-through-stores').length > 0 ? (
-                        <div className="results-grid">
-                          {results
-                            .filter((item) => subscriptionMatches[item.id] === 'available-through-stores')
-                            .map((item) => {
-                              const posterUrl = getPosterUrl(item.poster_path)
-                              return (
-                                <div
-                                  key={item.id}
-                                  className="result-card"
-                                  onClick={() => fetchItemDetails(item)}
-                                >
-                                  <div className="subscription-badge available-through-stores">
-                                    🛒 Available Through My Stores
-                                  </div>
-                                  <img
-                                    src={posterUrl}
-                                    alt={item.title || item.name}
-                                    className="poster"
-                                  />
-                                  <div className="card-content">
-                                    <h3 className="title">{item.title || item.name}</h3>
-                                    <div className="meta">
-                                      <span className="media-type">
-                                        {item.media_type === 'movie' ? 'Movie' : 'TV Show'}
-                                      </span>
-                                      <span className="release-date">
-                                        {getReleaseDate(item)}
-                                      </span>
-                                    </div>
-                                    <div className="rating">★ {getRating(item)}</div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                        </div>
-                      ) : (
-                        <div className="no-results">No titles available through your stores</div>
-                      )}
-                    </div>
-
                     <div className="results-section">
                       <h2 className="section-title">Requires Another Subscription</h2>
                       {results.filter((item) => subscriptionMatches[item.id] === 'requires-another-subscription').length > 0 ? (
@@ -537,7 +711,7 @@ function App() {
                                   onClick={() => fetchItemDetails(item)}
                                 >
                                   <div className="subscription-badge requires-another-subscription">
-                                    ✗ Requires Another Subscription
+                                    ✗ Subscription
                                   </div>
                                   <img
                                     src={posterUrl}
@@ -728,42 +902,37 @@ function App() {
                               <h4>Available To Me Now</h4>
                               <div className="provider-list">
                                 {groupProviders()
-                                  .filter((p) => isSubscribed(p.provider_id) || isPreferredStore(p.provider_id))
-                                  .map((provider) => {
-                                    const hasLink = hasProviderLink(provider.provider_id)
-                                    return (
-                                      <div
-                                        key={provider.provider_id}
-                                        className={`provider-item ${
-                                          isSubscribed(provider.provider_id) || isPreferredStore(provider.provider_id) ? 'subscribed' : ''
-                                        } ${!hasLink ? 'disabled' : ''}`}
-                                        onClick={() => hasLink && openProviderLink(provider.provider_id, itemDetails.title || itemDetails.name)}
-                                        title={hasLink ? 'Open Provider' : 'Provider link unavailable'}
-                                      >
-                                        <span className="provider-name">{provider.provider_name}</span>
-                                        <img
-                                          src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                          alt={provider.provider_name}
-                                          className="provider-logo"
-                                        />
-                                        <div className="provider-tags">
-                                          {provider.types.includes('stream') && (
-                                            <span className="provider-tag stream">STREAM</span>
-                                          )}
-                                          {provider.types.includes('rent') && (
-                                            <span className="provider-tag rent">RENT</span>
-                                          )}
-                                          {provider.types.includes('buy') && (
-                                            <span className="provider-tag buy">BUY</span>
-                                          )}
-                                        </div>
-                                        <span className="provider-action">
-                                          {hasLink ? 'Open Provider' : 'Provider link unavailable'}
-                                        </span>
+                                  .filter((p) => (isSubscribed(p.provider_id) || isPreferredStore(p.provider_id)) && hasProviderLink(p.provider_name))
+                                  .map((provider) => (
+                                    <div
+                                      key={provider.provider_id}
+                                      className={`provider-item ${
+                                        isSubscribed(provider.provider_id) || isPreferredStore(provider.provider_id) ? 'subscribed' : ''
+                                      }`}
+                                      onClick={() => openProviderLink(provider.provider_name, itemDetails.title || itemDetails.name)}
+                                      title="Open Provider"
+                                    >
+                                      <span className="provider-name">{provider.provider_name}</span>
+                                      <img
+                                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                        alt={provider.provider_name}
+                                        className="provider-logo"
+                                      />
+                                      <div className="provider-tags">
+                                        {provider.types.includes('stream') && (
+                                          <span className="provider-tag stream">STREAM</span>
+                                        )}
+                                        {provider.types.includes('rent') && (
+                                          <span className="provider-tag rent">RENT</span>
+                                        )}
+                                        {provider.types.includes('buy') && (
+                                          <span className="provider-tag buy">BUY</span>
+                                        )}
                                       </div>
-                                    )
-                                  })}
-                                {groupProviders().filter((p) => isSubscribed(p.provider_id) || isPreferredStore(p.provider_id)).length === 0 && (
+                                      <span className="provider-action">Open Provider</span>
+                                    </div>
+                                  ))}
+                                {groupProviders().filter((p) => (isSubscribed(p.provider_id) || isPreferredStore(p.provider_id)) && hasProviderLink(p.provider_name)).length === 0 && (
                                   <div className="no-providers">No providers available through your services</div>
                                 )}
                               </div>
@@ -773,40 +942,35 @@ function App() {
                               <h4>Requires Another Service</h4>
                               <div className="provider-list">
                                 {groupProviders()
-                                  .filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id))
-                                  .map((provider) => {
-                                    const hasLink = hasProviderLink(provider.provider_id)
-                                    return (
-                                      <div
-                                        key={provider.provider_id}
-                                        className={`provider-item ${!hasLink ? 'disabled' : ''}`}
-                                        onClick={() => hasLink && openProviderLink(provider.provider_id, itemDetails.title || itemDetails.name)}
-                                        title={hasLink ? 'Open Provider' : 'Provider link unavailable'}
-                                      >
-                                        <span className="provider-name">{provider.provider_name}</span>
-                                        <img
-                                          src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
-                                          alt={provider.provider_name}
-                                          className="provider-logo"
-                                        />
-                                        <div className="provider-tags">
-                                          {provider.types.includes('stream') && (
-                                            <span className="provider-tag stream">STREAM</span>
-                                          )}
-                                          {provider.types.includes('rent') && (
-                                            <span className="provider-tag rent">RENT</span>
-                                          )}
-                                          {provider.types.includes('buy') && (
-                                            <span className="provider-tag buy">BUY</span>
-                                          )}
-                                        </div>
-                                        <span className="provider-action">
-                                          {hasLink ? 'Open Provider' : 'Provider link unavailable'}
-                                        </span>
+                                  .filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id) && hasProviderLink(p.provider_name))
+                                  .map((provider) => (
+                                    <div
+                                      key={provider.provider_id}
+                                      className="provider-item"
+                                      onClick={() => openProviderLink(provider.provider_name, itemDetails.title || itemDetails.name)}
+                                      title="Open Provider"
+                                    >
+                                      <span className="provider-name">{provider.provider_name}</span>
+                                      <img
+                                        src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                        alt={provider.provider_name}
+                                        className="provider-logo"
+                                      />
+                                      <div className="provider-tags">
+                                        {provider.types.includes('stream') && (
+                                          <span className="provider-tag stream">STREAM</span>
+                                        )}
+                                        {provider.types.includes('rent') && (
+                                          <span className="provider-tag rent">RENT</span>
+                                        )}
+                                        {provider.types.includes('buy') && (
+                                          <span className="provider-tag buy">BUY</span>
+                                        )}
                                       </div>
-                                    )
-                                  })}
-                                {groupProviders().filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id)).length === 0 && (
+                                      <span className="provider-action">Open Provider</span>
+                                    </div>
+                                  ))}
+                                {groupProviders().filter((p) => !isSubscribed(p.provider_id) && !isPreferredStore(p.provider_id) && hasProviderLink(p.provider_name)).length === 0 && (
                                   <div className="no-providers">No other providers available</div>
                                 )}
                               </div>
@@ -816,6 +980,12 @@ function App() {
 
                         {groupProviders().length === 0 && (
                           <div className="no-providers">No watch providers available</div>
+                        )}
+
+                        {groupProviders().length > 0 && (
+                          <div className="provider-disclaimer">
+                            Provider availability is supplied by TMDb and may occasionally be out of date.
+                          </div>
                         )}
                       </div>
                     )}
