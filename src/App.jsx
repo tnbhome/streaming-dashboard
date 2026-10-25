@@ -111,6 +111,8 @@ function App() {
   const [subscriptionMatches, setSubscriptionMatches] = useState({})
   const [searchHistory, setSearchHistory] = useState([])
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false)
+  const [watchlist, setWatchlist] = useState([])
+  const [showWatchlist, setShowWatchlist] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('tmdb-subscriptions')
@@ -126,6 +128,11 @@ function App() {
     const savedHistory = localStorage.getItem('media-search-history')
     if (savedHistory) {
       setSearchHistory(JSON.parse(savedHistory))
+    }
+
+    const savedWatchlist = localStorage.getItem('media-watchlist')
+    if (savedWatchlist) {
+      setWatchlist(JSON.parse(savedWatchlist))
     }
   }, [])
 
@@ -226,6 +233,79 @@ function App() {
       default:
         return ''
     }
+  }
+
+  const calculateRankScore = (item, searchQuery) => {
+    let score = 0
+    const title = (item.title || item.name || '').toLowerCase()
+    const query = searchQuery.toLowerCase()
+
+    // Exact title match bonus
+    if (title === query) {
+      score += 100
+    } else if (title.includes(query)) {
+      score += 50
+    }
+
+    // Popularity score (normalized)
+    if (item.popularity) {
+      score += Math.min(item.popularity / 10, 50)
+    }
+
+    // Vote count score (normalized)
+    if (item.vote_count) {
+      score += Math.min(item.vote_count / 100, 30)
+    }
+
+    // Vote average score
+    if (item.vote_average) {
+      score += item.vote_average * 5
+    }
+
+    // Metadata completeness
+    if (item.poster_path) score += 10
+    if (item.overview) score += 10
+    if (item.release_date || item.first_air_date) score += 10
+
+    // Penalties
+    if (item.vote_count && item.vote_count < 10) score -= 20
+    if (!item.release_date && !item.first_air_date) score -= 15
+    if (!item.overview) score -= 10
+    if (item.popularity && item.popularity < 5) score -= 15
+
+    // Penalize specials if not searching for special
+    if (item.media_type === 'tv' && !query.includes('special')) {
+      score -= 10
+    }
+
+    return score
+  }
+
+  const isInWatchlist = (itemId) => {
+    return watchlist.some((item) => item.id === itemId)
+  }
+
+  const addToWatchlist = (item) => {
+    if (isInWatchlist(item.id)) return
+
+    const watchlistItem = {
+      id: item.id,
+      title: item.title || item.name,
+      poster: item.poster_path,
+      mediaType: item.media_type,
+      releaseYear: (item.release_date || item.first_air_date || '').split('-')[0],
+      addedAt: Date.now(),
+    }
+
+    const newWatchlist = [watchlistItem, ...watchlist]
+    setWatchlist(newWatchlist)
+    localStorage.setItem('media-watchlist', JSON.stringify(newWatchlist))
+  }
+
+  const removeFromWatchlist = (itemId) => {
+    const newWatchlist = watchlist.filter((item) => item.id !== itemId)
+    setWatchlist(newWatchlist)
+    localStorage.setItem('media-watchlist', JSON.stringify(newWatchlist))
   }
 
   const groupProviders = () => {
@@ -339,22 +419,16 @@ function App() {
 
     try {
       const apiKey = import.meta.env.VITE_TMDB_API_KEY
-      console.log('API Key:', apiKey ? 'Present' : 'Missing')
-      console.log('Search Query:', query)
-      
       const response = await fetch(
         `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(query)}`
       )
-
-      console.log('Response Status:', response.status)
 
       if (!response.ok) {
         throw new Error('Failed to fetch results')
       }
 
       const data = await response.json()
-      console.log('Raw Results Count:', data.results?.length || 0)
-      
+
       const filteredResults = (data.results || []).filter(
         (item) =>
           item.media_type === 'movie' ||
@@ -365,9 +439,13 @@ function App() {
           (item.title || item.name) &&
           item.overview
       )
-      
-      console.log('Filtered Results Count:', filteredResults.length)
-      setResults(filteredResults)
+
+      const rankedResults = filteredResults.map((item) => ({
+        ...item,
+        rankScore: calculateRankScore(item, query),
+      })).sort((a, b) => b.rankScore - a.rankScore)
+
+      setResults(rankedResults)
 
       const matches = {}
       for (const item of filteredResults) {
@@ -402,6 +480,7 @@ function App() {
 
   const getPosterUrl = (posterPath) => {
     if (!posterPath) return null
+    if (posterPath.startsWith('http')) return posterPath
     return `https://image.tmdb.org/t/p/w500${posterPath}`
   }
 
@@ -414,7 +493,8 @@ function App() {
   }
 
   const fetchItemDetails = async (item) => {
-    if (item.media_type !== 'movie' && item.media_type !== 'tv') {
+    const mediaType = item.mediaType || item.media_type
+    if (mediaType !== 'movie' && mediaType !== 'tv') {
       return
     }
 
@@ -426,9 +506,9 @@ function App() {
 
     try {
       const apiKey = import.meta.env.VITE_TMDB_API_KEY
-      const mediaType = item.media_type === 'tv' ? 'tv' : 'movie'
+      const apiMediaType = mediaType === 'tv' ? 'tv' : 'movie'
       const response = await fetch(
-        `https://api.themoviedb.org/3/${mediaType}/${item.id}?api_key=${apiKey}`
+        `https://api.themoviedb.org/3/${apiMediaType}/${item.id}?api_key=${apiKey}`
       )
 
       if (!response.ok) {
@@ -438,7 +518,7 @@ function App() {
       const data = await response.json()
       setItemDetails(data)
 
-      fetchWatchProviders(mediaType, item.id)
+      fetchWatchProviders(apiMediaType, item.id)
     } catch (err) {
       setModalError(err.message)
     } finally {
@@ -499,12 +579,20 @@ function App() {
     <div className="app">
       <header className="header">
         <h1>Media Search</h1>
-        <button
-          className="settings-button"
-          onClick={() => setShowSettings(!showSettings)}
-        >
-          ⚙️
-        </button>
+        <div className="header-buttons">
+          <button
+            className="watchlist-button"
+            onClick={() => setShowWatchlist(!showWatchlist)}
+          >
+            ★
+          </button>
+          <button
+            className="settings-button"
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            ⚙️
+          </button>
+        </div>
         {showSettings && (
           <div className="settings-panel">
             <h3>My Subscriptions</h3>
@@ -595,6 +683,52 @@ function App() {
         )}
       </header>
 
+      {showWatchlist && (
+        <div className="watchlist-section">
+          <h2 className="section-title">Watchlist</h2>
+          {watchlist.length === 0 ? (
+            <div className="no-results">Your watchlist is empty</div>
+          ) : (
+            <div className="results-grid">
+              {watchlist.map((item) => {
+                const posterUrl = item.poster ? `https://image.tmdb.org/t/p/w500${item.poster}` : null
+                return (
+                  <div key={item.id} className="result-card">
+                    <button
+                      className="watchlist-remove"
+                      onClick={() => removeFromWatchlist(item.id)}
+                      title="Remove from watchlist"
+                    >
+                      ×
+                    </button>
+                    {posterUrl && (
+                      <img
+                        src={posterUrl}
+                        alt={item.title}
+                        className="poster"
+                        onClick={() => {
+                          setSelectedItem(item)
+                          fetchItemDetails(item)
+                        }}
+                      />
+                    )}
+                    <div className="card-content">
+                      <h3 className="title">{item.title}</h3>
+                      <div className="meta">
+                        <span className="media-type">
+                          {item.mediaType === 'movie' ? 'Movie' : 'TV Show'}
+                        </span>
+                        <span className="release-date">{item.releaseYear}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       <main className="main">
         {error && <div className="error">{error}</div>}
 
@@ -622,6 +756,20 @@ function App() {
                               className="result-card"
                               onClick={() => fetchItemDetails(item)}
                             >
+                              <button
+                                className="watchlist-toggle"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (isInWatchlist(item.id)) {
+                                    removeFromWatchlist(item.id)
+                                  } else {
+                                    addToWatchlist(item)
+                                  }
+                                }}
+                                title={isInWatchlist(item.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                              >
+                                {isInWatchlist(item.id) ? '★' : '☆'}
+                              </button>
                               <div className="subscription-badge included-in-services">
                                 ✓ Included
                               </div>
@@ -665,6 +813,20 @@ function App() {
                               className="result-card"
                               onClick={() => fetchItemDetails(item)}
                             >
+                              <button
+                                className="watchlist-toggle"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (isInWatchlist(item.id)) {
+                                    removeFromWatchlist(item.id)
+                                  } else {
+                                    addToWatchlist(item)
+                                  }
+                                }}
+                                title={isInWatchlist(item.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                              >
+                                {isInWatchlist(item.id) ? '★' : '☆'}
+                              </button>
                               <div className="subscription-badge available-through-stores">
                                 🛒 Available
                               </div>
@@ -710,6 +872,20 @@ function App() {
                                   className="result-card"
                                   onClick={() => fetchItemDetails(item)}
                                 >
+                                  <button
+                                    className="watchlist-toggle"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (isInWatchlist(item.id)) {
+                                        removeFromWatchlist(item.id)
+                                      } else {
+                                        addToWatchlist(item)
+                                      }
+                                    }}
+                                    title={isInWatchlist(item.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                                  >
+                                    {isInWatchlist(item.id) ? '★' : '☆'}
+                                  </button>
                                   <div className="subscription-badge requires-another-subscription">
                                     ✗ Subscription
                                   </div>
@@ -753,6 +929,20 @@ function App() {
                                   className="result-card"
                                   onClick={() => fetchItemDetails(item)}
                                 >
+                                  <button
+                                    className="watchlist-toggle"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (isInWatchlist(item.id)) {
+                                        removeFromWatchlist(item.id)
+                                      } else {
+                                        addToWatchlist(item)
+                                      }
+                                    }}
+                                    title={isInWatchlist(item.id) ? 'Remove from watchlist' : 'Add to watchlist'}
+                                  >
+                                    {isInWatchlist(item.id) ? '★' : '☆'}
+                                  </button>
                                   <img
                                     src={posterUrl}
                                     alt={item.title || item.name}
